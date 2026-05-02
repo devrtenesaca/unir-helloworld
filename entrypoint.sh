@@ -2,7 +2,7 @@
 
 # 1. Start WireMock in the background
 echo "Starting WireMock..."
-java -jar /opt/wiremock.jar --root-dir ./test/wiremock --port 8080 &
+java -jar /opt/wiremock.jar --root-dir ./test/wiremock --port 9090 &
 
 # 2. Wait a moment for WireMock to start
 sleep 2

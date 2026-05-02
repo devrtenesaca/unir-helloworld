@@ -13,6 +13,6 @@
             ]
         }
     },
-    "forwardPorts": [5000, 8080],
+    "forwardPorts": [5000, 9090],
     "postCreateCommand": "pip3 install -r requirements.txt"
 }
