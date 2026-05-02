@@ -1,5 +1,5 @@
 IMAGE_NAME ?= "unircalculator"
-CONTINAER_NAME ?= "serivices_calculator"
+CONTAINER_NAME ?= "services_calculator"
 IMAGE_TAG ?= "latest"	
 PORT_FLASK = 5000
 PORT_WIREMOCK = 9090
