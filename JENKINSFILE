@@ -28,7 +28,7 @@ pipeline {
         }
         
         
-        stage ('Testing'){
+        stage (' Stage testing'){
             parallel {
                
                 stage('Unit') {
