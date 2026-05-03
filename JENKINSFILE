@@ -1,56 +1,74 @@
 pipeline {
     agent any
 
-     stages {
+    stages {
         stage('Get Code') {
             steps {
-                // Obtener código del repo
-                git 'https://github.com/anieto-unir/helloworld.git'
+                echo 'Downloading the code'
+                git branch: 'master', url: 'https://github.com/devrtenesaca/unir-helloworld.git'
             }
         }
 
-    stage('Build') {
-        steps {
-            echo 'Eyyyy, esto es Python. No hay que compilar nada!!!'
-	    echo WORKSPACE
-	    bat 'dir'
+        stage('Build') {
+            steps {
+                echo 'Running Python code this is just an example'
+                echo "Workspace directory is: ${WORKSPACE}"
+                sh 'ls -l'
+            }
         }
-    }
-
-    stage('Tests')
-    {
-        parallel {
-
-            stage('Unit') {
-                steps {
-                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                        bat '''
-                                set PYTHONPATH=%WORKSPACE%
-                                pytest --junitxml=result-unit.xml test\\unit
+        stage ('Build and deploy container'){
+            steps{
+                echo ' build and deploy the container'
+                sh '''
+                   make build
+                   make run
+                '''
+                 sh 'sleep 30' 
+            }
+        }
+        
+        
+        stage ('Testing'){
+            parallel {
+               
+                stage('Unit') {
+                    steps {
+                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                            sh '''
+                                export PYTHONPATH=${WORKSPACE}
+                                pytest --junitxml=result-unit.xml test/unit
+                            '''
+                         }
+                    }
+                }
+                
+                stage ('Service'){
+                    steps {
+                        sh '''
+                            export PYTHONPATH=${WORKSPACE}
+                            pytest --junitxml=result-rest.xml test/rest
                         '''
                     }
                 }
+                
             }
-            
-            stage('Rest') {
-                steps {
-                    bat '''
-                        set FLASK_APP=app\\api.py
-                        set FLASK_ENV=development
-                        start flask run
-                        start java -jar C:\\Unir\\Ejercicios\\wiremock\\wiremock-jre8-standalone-2.28.0.jar --port 9090 --root-dir test\\wiremock
-                        set PYTHONPATH=%WORKSPACE%
-                        pytest --junitxml=result-rest.xml test\\rest
-                    '''
-                }    
-            }    
+        }
+                
+        
+        stage ('Results'){
+            steps {
+                junit 'result*.xml'
+            }
+        }
+        
+        
+        stage ('clean'){
+            steps {
+                sh '''
+                make stop
+                make clean
+                '''
+            }
         }
     }
-    
-    stage ('Results') {
-        steps {
-            junit 'result*.xml'
-        }
-    }
-  }
 }
