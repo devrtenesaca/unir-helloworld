@@ -13,7 +13,7 @@ build:
 
 
 #2: runt the Docker container
-run:
+run: stop
 	@echo "Running Docker container from image: $(FULL_IMAGE_NAME)"
 	docker run -d \
 			--name $(CONTAINER_NAME)  \
