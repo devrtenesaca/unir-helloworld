@@ -62,5 +62,9 @@ class TestCalculate(unittest.TestCase):
         self.assertEqual(0, self.calc.substract(0, 0))
         self.assertRaises(TypeError, self.calc.substract, "0", 0)
         
+    def test_divide_method_fails_with_zero_division(self):
+        # Esta línea ejecutará las líneas 23 y 24 de calc.py que estaban en rojo
+        self.assertRaises(TypeError, self.calc.divide, 10, 0)
+        
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
