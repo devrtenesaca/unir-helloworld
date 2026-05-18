@@ -1,0 +1,141 @@
+pipeline {
+    agent none
+
+    stages {
+        stage('Get Code (agent-01') {
+            agent { label 'vm-testing' }
+            steps {
+                sh 'echo " usuario: $(whoami)  | Servidor: $(hostname) | Nodo Jenkins: ${NODE_NAME}"'
+                git branch: 'master', url: 'https://github.com/devrtenesaca/unir-helloworld.git'
+                sh 'make build'
+                stash name: 'code-calapp', includes: '**'
+            }
+        }
+
+        stage('Deploy (agent-01'){
+            agent { label 'vm-testing'}
+            steps {
+                  sh '''
+                   echo " usuario: $(whoami)  | Servidor: $(hostname) | Nodo Jenkins: ${NODE_NAME}"
+                   make run
+                 '''
+                 sh 'sleep 10' 
+            }
+        }
+        
+        stage ('Unit Test (agent-01)'){
+            parallel {
+                stage('Unit') {
+                    agent { label 'vm-testing '}
+                    steps {
+                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                            sh '''
+                                echo " usuario: $(whoami)  | Servidor: $(hostname) | Nodo Jenkins: ${NODE_NAME}"
+                                export PYTHONPATH=${WORKSPACE}
+                                pytest --junitxml=result-unit.xml test/unit
+                            '''
+                         }
+                    }
+                }
+                
+                stage ('Service'){
+                     agent { label 'vm-testing'}
+                    steps {
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                            sh '''
+                                echo " usuario: $(whoami)  | Servidor: $(hostname) | Nodo Jenkins: ${NODE_NAME}"
+                                export PYTHONPATH=${WORKSPACE}
+                                pytest --junitxml=result-rest.xml test/rest
+                            '''
+                        }
+                    }
+                }
+                
+                stage('Coverage') {
+                    agent { label 'vm-testing'}
+                    steps {
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                            sh '''
+                                echo " usuario: $(whoami)  | Servidor: $(hostname) | Nodo Jenkins: ${NODE_NAME}"
+                                coverage run --branch --source=app --omit=app/__init__.py,app/api.py -m pytest --junitxml=result-unit.xml test/unit
+                                coverage xml
+                            '''
+                             //cobertura coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '100,0,80', lineCoverageTargets: '100,0,90'
+                            recordCoverage(
+                                    tools: [[parser: 'COBERTURA', pattern: 'coverage.xml']],
+                                    id: 'python-coverage',
+                                    name: 'Python Coverage',
+                                    qualityGates: [
+                                        [threshold: 90.0, metric: 'LINE', baseline: 'PROJECT', unstable: true],
+                                        [threshold: 80.0, metric: 'LINE', baseline: 'PROJECT', unstable: true]
+                                    ]
+                                )                              
+                        }
+                    }
+                }
+                
+            }
+        }
+        
+        stage ('Results Unit Test'){
+            agent { label 'vm-testing' }
+            steps {
+                junit 'result*.xml'
+            }
+        }
+
+        // --- STEP QA STATIC TESTING: 
+        stage('Satic Test ') {
+            parallel {
+                
+                stage('Static  (agent-01)') {
+                    agent { label 'vm-testing' }
+                    steps {
+                        sh 'echo " usuario: $(whoami)  | Servidor: $(hostname) | Nodo Jenkins: ${NODE_NAME}"'
+                        unstash 'code-calapp'
+                        sh 'flake8 --exit-zero --format=pylint app > flake8.out'
+                       // sh 'bandit --exit-zero -r . -f custom -o bandit.out --msg-template "{abspath}:{line}: [{test_id}] {msg}"'
+                        recordIssues tools: [pyLint(name:'Flake8-StaticReport', pattern: 'flake8.out')]
+                    }
+                }
+
+                stage('Security (agent-02)') {
+                       agent { label 'vm-deploy' }
+                    steps {
+                        sh 'echo " usuario: $(whoami)  | Servidor: $(hostname) | Nodo Jenkins: ${NODE_NAME}"'
+                        unstash 'code-calapp'
+                        sh '''
+                            bandit --exit-zero -r . -f custom -o bandit.out --msg-template "{abspath}:{line}: [{test_id}] {msg}"
+                        '''
+                        recordIssues(
+                            tools: [pyLint(id: 'bandit', name: 'Bandit-SecurityReport', pattern: 'bandit.out')],
+                            qualityGates: [
+                                [threshold: 1, type: 'TOTAL', unstable: true]
+                                ]
+                            )
+                        }
+                }
+        
+                stage('Performance ( agent-03)') {
+                    agent { label 'vm-performance' }
+                    steps {
+                        sh 'echo " usuario: $(whoami)  | Servidor: $(hostname) | Nodo Jenkins: ${NODE_NAME}"'
+                        unstash 'code-calapp'
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                            sh 'jmeter -n -t test/jmeter/flask.jmx -f -l flask.jtl'
+                            perfReport sourceDataFiles: 'flask.jtl'
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Cleaning') {
+            agent { label 'vm-testing' }
+            steps {
+                sh 'echo " usuario: $(whoami)  | Servidor: $(hostname) | Nodo Jenkins: ${NODE_NAME}"'
+                sh 'make stop && make clean'
+            }
+        }
+    }
+}
