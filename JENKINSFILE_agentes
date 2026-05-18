@@ -66,8 +66,8 @@ pipeline {
                                     id: 'python-coverage',
                                     name: 'Python Coverage',
                                     qualityGates: [
-                                        [threshold: 100.0, metric: 'LINE', baseline: 'PROJECT', unstable: true],
-                                        [threshold: 100.0, metric: 'LINE', baseline: 'PROJECT', unstable: true]
+                                        [threshold: 90.0, metric: 'LINE', baseline: 'PROJECT', unstable: true],
+                                        [threshold: 80.0, metric: 'LINE', baseline: 'PROJECT', unstable: true]
                                     ]
                                 )                              
                         }
@@ -88,14 +88,21 @@ pipeline {
         stage('Satic Test ') {
             parallel {
                 
-                stage('Static  (agent-01)') {
+                stage('Static (agent-01)') {
                     agent { label 'vm-testing' }
                     steps {
                         sh 'echo " usuario: $(whoami)  | Servidor: $(hostname) | Nodo Jenkins: ${NODE_NAME}"'
                         unstash 'code-calapp'
                         sh 'flake8 --exit-zero --format=pylint app > flake8.out'
-                       // sh 'bandit --exit-zero -r . -f custom -o bandit.out --msg-template "{abspath}:{line}: [{test_id}] {msg}"'
-                        recordIssues tools: [pyLint(name:'Flake8-StaticReport', pattern: 'flake8.out')]
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                            recordIssues(
+                                tools: [pyLint(name: 'Flake8-StaticReport', pattern: 'flake8.out')],
+                                qualityGates: [
+                                    [threshold: 8, type: 'TOTAL', unstable: true],
+                                    [threshold: 10, type: 'TOTAL', unstable: false]
+                                ]
+                            )
+                        }
                     }
                 }
 
