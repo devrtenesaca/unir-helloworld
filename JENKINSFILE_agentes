@@ -66,8 +66,8 @@ pipeline {
                                     id: 'python-coverage',
                                     name: 'Python Coverage',
                                     qualityGates: [
-                                        [threshold: 90.0, metric: 'LINE', baseline: 'PROJECT', unstable: true],
-                                        [threshold: 80.0, metric: 'LINE', baseline: 'PROJECT', unstable: true]
+                                        [threshold: 100.0, metric: 'LINE', baseline: 'PROJECT', unstable: true],
+                                        [threshold: 100.0, metric: 'LINE', baseline: 'PROJECT', unstable: true]
                                     ]
                                 )                              
                         }
